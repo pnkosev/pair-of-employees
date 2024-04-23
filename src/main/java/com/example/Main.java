@@ -1,21 +1,40 @@
 package com.example;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class Main {
     public static void main(String[] args) {
         Map<Long, List<Employee>> records;
         try {
-            records = collectRecords("/test.csv");
+            records = collectRecords("/test2.csv");
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         }
 
-        EmployeePair pair = null;
+        TreeMap<EmployeePair, EmployeePair> employeePairs = new TreeMap<>(getEmployeePairs(records));
+
+        if (employeePairs.isEmpty()) {
+            System.out.println("No overlapping pair of employees found!");
+        } else {
+            System.out.println(employeePairs.lastEntry().getValue());
+        }
+    }
+
+    public static Map<EmployeePair, EmployeePair> getEmployeePairs(Map<Long, List<Employee>> records) {
+        Map<EmployeePair, EmployeePair> employeePairs = new HashMap<>();
+
         for (Map.Entry<Long, List<Employee>> record : records.entrySet()) {
             List<Employee> employees = record.getValue();
             if (employees.size() > 1) {
@@ -23,14 +42,17 @@ public class Main {
                     Employee employee = employees.get(i);
                     for (int j = i + 1; j < employees.size(); j++) {
                         Employee otherEmployee = employees.get(j);
-                        long overlappedDays = calculateOverlappedDays(employee, otherEmployee);
-                        if (overlappedDays > 0) {
-                            if (pair != null) {
-                                if (overlappedDays > pair.getTotalOverlappedDays()) {
-                                    pair = new EmployeePair(employee, otherEmployee, overlappedDays, record.getKey());
+                        if (employee.getId() != otherEmployee.getId()) {
+                            long overlappingDays = calculateOverlappingDays(employee, otherEmployee);
+                            if (overlappingDays > 0) {
+                                EmployeePair employeePair = new EmployeePair(employee, otherEmployee);
+                                employeePair.addCommonProject(record.getKey(), overlappingDays);
+                                if (employeePairs.containsKey(employeePair)) {
+                                    Map<Long, Long> previouslyKnownCommonProjects = employeePairs.get(employeePair).getCommonProjects();
+                                    employeePair.addCommonProject(previouslyKnownCommonProjects);
+                                    employeePairs.remove(employeePair);
                                 }
-                            } else {
-                                pair = new EmployeePair(employee, otherEmployee, overlappedDays, record.getKey());
+                                employeePairs.put(employeePair, employeePair);
                             }
                         }
                     }
@@ -38,11 +60,7 @@ public class Main {
             }
         }
 
-        if (pair != null) {
-            System.out.println(pair);
-        } else {
-            System.out.println("No overlapping pair of employees found!");
-        }
+        return employeePairs;
     }
 
     private static Map<Long, List<Employee>> collectRecords(String path) throws FileNotFoundException {
@@ -75,7 +93,7 @@ public class Main {
         return records;
     }
 
-    private static long calculateOverlappedDays(Employee one, Employee two) {
+    private static long calculateOverlappingDays(Employee one, Employee two) {
         long minEndDate = Math.min(one.getEndDate().toEpochDay(), two.getEndDate().toEpochDay());
         long maxStartDate = Math.max(one.getStartDate().toEpochDay(), two.getStartDate().toEpochDay());
         long overlap = minEndDate - maxStartDate;
