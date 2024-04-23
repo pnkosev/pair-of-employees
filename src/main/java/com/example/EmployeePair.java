@@ -32,7 +32,7 @@ public class EmployeePair implements Comparable<EmployeePair> {
         totalOverlappingDays += days;
     }
 
-    public void addCommonProject(Map<Long, Long> commonProjects) {
+    public void addCommonProjects(Map<Long, Long> commonProjects) {
         for (Map.Entry<Long, Long> entry : commonProjects.entrySet()) {
             addCommonProject(entry.getKey(), entry.getValue());
         }

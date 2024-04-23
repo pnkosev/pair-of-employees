@@ -59,7 +59,7 @@ public class Main {
                                 employeePair.addCommonProject(record.getKey(), overlappingDays);
                                 if (employeePairs.containsKey(employeePair)) {
                                     Map<Long, Long> oldCommonProjects = employeePairs.get(employeePair).getCommonProjects();
-                                    employeePair.addCommonProject(oldCommonProjects);
+                                    employeePair.addCommonProjects(oldCommonProjects);
                                     employeePairs.remove(employeePair);
                                 }
                                 employeePairs.put(employeePair, employeePair);
