@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.TreeMap;
 
 public class Main {
+    public static final String NULL_DATE_TO = "NULL";
+
     public static void main(String[] args) throws FileNotFoundException {
         Map<Long, List<Employee>> records;
         records = collectRecords("/test1.csv");
@@ -31,10 +33,13 @@ public class Main {
     }
 
     /**
-     * Aggregates the employee pairs who have ever worked on a common project.
+     * Aggregates the employee pairs who have ever worked on a common
+     * project with the respective number of overlapping days per project
+     * as well as their sum.
      *
-     * @param records map returned by the {@link Main#collectRecords(String)}
-     * @return map of {@link EmployeePair}
+     * @param records map of all projects with their corresponding
+     *                list of employees ({@link Employee})
+     * @return map of employee pairs ({@link EmployeePair}) as key and value
      */
     public static Map<EmployeePair, EmployeePair> getEmployeePairs(Map<Long, List<Employee>> records) {
         Map<EmployeePair, EmployeePair> employeePairs = new HashMap<>();
@@ -73,7 +78,8 @@ public class Main {
      * EmployeeID, ProjectID, DateFrom, DateTo
      *
      * @param path the absolute path to the file
-     * @return map with project IDs with corresponding list of {@link Employee}
+     * @return map with project IDs with corresponding list of employees
+     *         ({@link Employee})
      */
     public static Map<Long, List<Employee>> collectRecords(String path) throws FileNotFoundException {
         Map<Long, List<Employee>> records = new HashMap<>();
@@ -91,7 +97,7 @@ public class Main {
                 LocalDate from = parseDate(values[2]);
                 String dateToAsString = values[3];
                 LocalDate to;
-                if (dateToAsString.equals("NULL")) {
+                if (dateToAsString.equals(NULL_DATE_TO)) {
                     to = LocalDate.now();
                 } else {
                     to = parseDate(values[3]);
@@ -109,7 +115,7 @@ public class Main {
     }
 
     /**
-     * Calculates the number of overlapping days between two given time rages.
+     * Calculates the number of overlapping days between two given time ranges.
      *
      * @param startDateOne start date of first time range
      * @param endDateOne end date of first time range
@@ -136,7 +142,7 @@ public class Main {
      * @return a parsed date
      */
     public static LocalDate parseDate(String date) {
-        // Parse dates in different formats.
+        // Add different formats if required.
         DateTimeFormatterBuilder dateTimeFormatterBuilder = new DateTimeFormatterBuilder()
                 .append(DateTimeFormatter.ofPattern("[yyyy-MM-dd]" + "[dd-MM-yyyy]"));
         DateTimeFormatter dateTimeFormatter = dateTimeFormatterBuilder.toFormatter();
