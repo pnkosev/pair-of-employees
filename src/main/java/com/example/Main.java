@@ -7,6 +7,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,13 +17,9 @@ import java.util.Map;
 import java.util.TreeMap;
 
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws FileNotFoundException {
         Map<Long, List<Employee>> records;
-        try {
-            records = collectRecords("/test2.csv");
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
-        }
+        records = collectRecords("/test1.csv");
 
         TreeMap<EmployeePair, EmployeePair> employeePairs = new TreeMap<>(getEmployeePairs(records));
 
@@ -32,6 +30,12 @@ public class Main {
         }
     }
 
+    /**
+     * Aggregates the employee pairs who have ever worked on a common project.
+     *
+     * @param records map returned by the {@link Main#collectRecords(String)}
+     * @return map of {@link EmployeePair}
+     */
     public static Map<EmployeePair, EmployeePair> getEmployeePairs(Map<Long, List<Employee>> records) {
         Map<EmployeePair, EmployeePair> employeePairs = new HashMap<>();
 
@@ -41,15 +45,16 @@ public class Main {
                 for (int i = 0; i < employees.size() - 1; i++) {
                     Employee employee = employees.get(i);
                     for (int j = i + 1; j < employees.size(); j++) {
-                        Employee otherEmployee = employees.get(j);
-                        if (employee.getId() != otherEmployee.getId()) {
-                            long overlappingDays = calculateOverlappingDays(employee, otherEmployee);
+                        Employee nextEmployee = employees.get(j);
+                        if (employee.getId() != nextEmployee.getId()) {
+                            long overlappingDays = calculateOverlappingDays(employee.getStartDate(), employee.getEndDate(),
+                                    nextEmployee.getStartDate(), nextEmployee.getEndDate());
                             if (overlappingDays > 0) {
-                                EmployeePair employeePair = new EmployeePair(employee, otherEmployee);
+                                EmployeePair employeePair = new EmployeePair(employee, nextEmployee);
                                 employeePair.addCommonProject(record.getKey(), overlappingDays);
                                 if (employeePairs.containsKey(employeePair)) {
-                                    Map<Long, Long> previouslyKnownCommonProjects = employeePairs.get(employeePair).getCommonProjects();
-                                    employeePair.addCommonProject(previouslyKnownCommonProjects);
+                                    Map<Long, Long> oldCommonProjects = employeePairs.get(employeePair).getCommonProjects();
+                                    employeePair.addCommonProject(oldCommonProjects);
                                     employeePairs.remove(employeePair);
                                 }
                                 employeePairs.put(employeePair, employeePair);
@@ -63,7 +68,14 @@ public class Main {
         return employeePairs;
     }
 
-    private static Map<Long, List<Employee>> collectRecords(String path) throws FileNotFoundException {
+    /**
+     * Aggregates project to employees data from a csv file with format:
+     * EmployeeID, ProjectID, DateFrom, DateTo
+     *
+     * @param path the absolute path to the file
+     * @return map with project IDs with corresponding list of {@link Employee}
+     */
+    public static Map<Long, List<Employee>> collectRecords(String path) throws FileNotFoundException {
         Map<Long, List<Employee>> records = new HashMap<>();
         InputStream inputStream = Main.class.getResourceAsStream(path);
         if (inputStream == null) {
@@ -73,30 +85,61 @@ public class Main {
         try (BufferedReader br = new BufferedReader(streamReader)) {
             String line;
             while ((line = br.readLine()) != null) {
-                String[] values = line.split(", ");
+                String[] values = line.split(",\\s*");
                 long employeeId = Long.parseLong(values[0]);
                 long projectId = Long.parseLong(values[1]);
-                LocalDate from = LocalDate.parse(values[2]);
+                LocalDate from = parseDate(values[2]);
+                String dateToAsString = values[3];
                 LocalDate to;
-                try {
-                    to = LocalDate.parse(values[3]);
-                } catch (DateTimeParseException e) {
+                if (dateToAsString.equals("NULL")) {
                     to = LocalDate.now();
+                } else {
+                    to = parseDate(values[3]);
                 }
 
                 records.computeIfAbsent(projectId, x -> new ArrayList<>())
                         .add(new Employee(employeeId, from, to));
             }
-        } catch (IOException | RuntimeException e) {
-            throw new RuntimeException(e);
+        } catch (IOException e) {
+            // TODO error handling
+        } catch (DateTimeParseException e) {
+            // TODO error handling
         }
         return records;
     }
 
-    private static long calculateOverlappingDays(Employee one, Employee two) {
-        long minEndDate = Math.min(one.getEndDate().toEpochDay(), two.getEndDate().toEpochDay());
-        long maxStartDate = Math.max(one.getStartDate().toEpochDay(), two.getStartDate().toEpochDay());
+    /**
+     * Calculates the number of overlapping days between two given time rages.
+     *
+     * @param startDateOne start date of first time range
+     * @param endDateOne end date of first time range
+     * @param startDateTwo start date of second time range
+     * @param endDateTwo end date of second time range
+     * @return number of overlapping days
+     */
+    public static long calculateOverlappingDays(LocalDate startDateOne, LocalDate endDateOne,
+                                                LocalDate startDateTwo, LocalDate endDateTwo) {
+        long minEndDate = Math.min(endDateOne.toEpochDay(), endDateTwo.toEpochDay());
+        long maxStartDate = Math.max(startDateOne.toEpochDay(), startDateTwo.toEpochDay());
         long overlap = minEndDate - maxStartDate;
         return Math.max(0, overlap);
+    }
+
+    /**
+     * Parses a given date with the following formats:
+     * <ul>
+     *     <li>yyyy-MM-dd</li>
+     *     <li>dd-MM-yyyy</li>
+     * </ul>
+     *
+     * @param date String representation of the date
+     * @return a parsed date
+     */
+    public static LocalDate parseDate(String date) {
+        // Parse dates in different formats.
+        DateTimeFormatterBuilder dateTimeFormatterBuilder = new DateTimeFormatterBuilder()
+                .append(DateTimeFormatter.ofPattern("[yyyy-MM-dd]" + "[dd-MM-yyyy]"));
+        DateTimeFormatter dateTimeFormatter = dateTimeFormatterBuilder.toFormatter();
+        return LocalDate.parse(date, dateTimeFormatter);
     }
 }

@@ -24,7 +24,11 @@ public class EmployeePair implements Comparable<EmployeePair> {
     }
 
     public void addCommonProject(long projectId, long days) {
-        commonProjects.putIfAbsent(projectId, days);
+        long totalDays = days;
+        if (commonProjects.containsKey(projectId)) {
+            totalDays += commonProjects.get(projectId);
+        }
+        commonProjects.put(projectId, totalDays);
         totalOverlappingDays += days;
     }
 
@@ -49,8 +53,12 @@ public class EmployeePair implements Comparable<EmployeePair> {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         EmployeePair that = (EmployeePair) o;
         return Objects.equals(one.getId(), that.one.getId()) && Objects.equals(two.getId(), that.two.getId())
             || Objects.equals(two.getId(), that.one.getId()) && Objects.equals(one.getId(), that.two.getId());
@@ -63,7 +71,9 @@ public class EmployeePair implements Comparable<EmployeePair> {
 
     @Override
     public int compareTo(EmployeePair o) {
-        if (o == null) throw new NullPointerException();
+        if (o == null) {
+            throw new NullPointerException();
+        }
         return Long.compare(totalOverlappingDays, o.totalOverlappingDays);
     }
 }
